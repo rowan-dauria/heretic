@@ -19,12 +19,12 @@
 #! Specify the number of GPUs per node (between 1 and 4; must be 4 if nodes>1).
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=02:30:00
+#SBATCH --time=03:00:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=NONE
-#! Output files (redirected to rds for storage):
-#SBATCH -o /home/rd761/rds/slurm_%j.out
-#SBATCH -e /home/rd761/rds/slurm_%j.err
+#! Output files:
+#SBATCH -o /home/rd761/heretic-fork/slurm_logs/slurm_%j.out
+#SBATCH -e /home/rd761/heretic-fork/slurm_logs/slurm_%j.err
 #! Uncomment this to prevent the job from being requeued (e.g. if
 #! interrupted by node failure or system downtime):
 ##SBATCH --no-requeue
@@ -33,6 +33,7 @@
 #SBATCH -p ampere
 
 #! sbatch directives end here (put any additional directives above this line)
+set -euo pipefail
 
 #! Notes:
 #! Charging is determined by GPU number*walltime.
@@ -53,34 +54,41 @@ module load rhel8/default-amp              # REQUIRED - loads the basic environm
 
 #! Insert additional module load commands after this line if needed:
 
-#! Enable fast HuggingFace downloads:
-export HF_HUB_ENABLE_HF_TRANSFER=1
-
 #! Add uv to PATH:
 export PATH="/home/rd761/.local/bin:$PATH"
 
 #! Work directory (i.e. where the job will run):
-workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
-                             # in which sbatch is run.
+workdir="/home/rd761/heretic-fork"
+venv="$workdir/.venv"
+run_root="/home/rd761/rds/hpc-work/heretic-qwen3-4b"
+model_id="Qwen/Qwen3-4B"
+n_trials=200
+protected_layers="[2,12,24,33]"
 
 export OMP_NUM_THREADS=1
-
-#! Command to run:
-CMD="uv run heretic --model Qwen/Qwen3-4B --n-trials=200"
+export HF_HOME="/rds/user/rd761/hpc-work/huggingface"
+export HF_HUB_CACHE="$HF_HOME/hub"
 
 ###############################################################
 ### You should not have to change anything below this line ####
 ###############################################################
 
-cd $workdir
-echo -e "Changed directory to `pwd`.\n"
-
 JOBID=$SLURM_JOB_ID
+run_dir="$run_root/job_$JOBID"
+checkpoint_dir="$run_dir/checkpoints"
+
+mkdir -p "$checkpoint_dir" "$HF_HUB_CACHE"
+
+cd "$workdir"
+echo -e "Changed directory to `pwd`.\n"
 
 echo -e "JobID: $JOBID\n======"
 echo "Time: `date`"
 echo "Running on master node: `hostname`"
 echo "Current directory: `pwd`"
+echo "Run directory: $run_dir"
+echo "Checkpoint directory: $checkpoint_dir"
+echo "HF_HOME: $HF_HOME"
 
 if [ "$SLURM_JOB_NODELIST" ]; then
         #! Create a machine file:
@@ -92,6 +100,42 @@ fi
 
 echo -e "\nnumtasks=$numtasks, numnodes=$numnodes, mpi_tasks_per_node=$mpi_tasks_per_node (OMP_NUM_THREADS=$OMP_NUM_THREADS)"
 
-echo -e "\nExecuting command:\n==================\n$CMD\n"
+if [ ! -f "$venv/bin/activate" ]; then
+        echo "ERROR: expected virtual environment at $venv"
+        echo "Create it with:"
+        echo "  cd $workdir"
+        echo "  uv venv .venv --python 3.12"
+        echo "  source .venv/bin/activate"
+        echo "  uv pip install -e ."
+        exit 1
+fi
 
-eval $CMD
+source "$venv/bin/activate"
+
+if python -c "import hf_transfer" >/dev/null 2>&1; then
+        export HF_HUB_ENABLE_HF_TRANSFER=1
+else
+        unset HF_HUB_ENABLE_HF_TRANSFER
+fi
+
+export HERETIC_EXCLUDED_ABLITERATION_LAYERS="$protected_layers"
+export HERETIC_ENABLE_THINKING=false
+
+CMD=(
+        heretic
+        --model "$model_id"
+        --n-trials "$n_trials"
+        --study-checkpoint-dir "$checkpoint_dir"
+)
+
+echo "Python: $(which python)"
+python --version
+echo "Heretic: $(which heretic)"
+echo "Protected abliteration layers: $HERETIC_EXCLUDED_ABLITERATION_LAYERS"
+echo "HF_HUB_ENABLE_HF_TRANSFER: ${HF_HUB_ENABLE_HF_TRANSFER:-unset}"
+
+echo -e "\nExecuting command:\n=================="
+printf ' %q' "${CMD[@]}"
+echo -e "\n"
+
+"${CMD[@]}"
