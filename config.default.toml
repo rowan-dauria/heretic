@@ -108,6 +108,13 @@ orthogonalize_direction = true
 # "full" (like "pre", but renormalizes to preserve original row magnitudes).
 row_normalization = "full"
 
+# Zero-indexed transformer layer indices that must not receive abliteration
+# adapter weights. Use this to protect layers reserved for downstream analysis,
+# such as transcoder-tracked layers.
+excluded_abliteration_layers = []
+# Example for the Qwen3-4B transcoder layers:
+# excluded_abliteration_layers = [2, 12, 24, 33]
+
 # The rank of the LoRA adapter to use when "full" row normalization is used.
 # Row magnitude preservation is approximate due to non-linear effects,
 # and this determines the rank of that approximation. Higher ranks produce

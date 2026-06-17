@@ -319,6 +319,15 @@ class Settings(BaseSettings):
         ),
     )
 
+    excluded_abliteration_layers: list[int] = Field(
+        default_factory=list,
+        description=(
+            "Zero-indexed transformer layer indices that must not receive abliteration "
+            "adapter weights. Use this to protect layers reserved for downstream analysis, "
+            "such as transcoder-tracked layers."
+        ),
+    )
+
     full_normalization_lora_rank: int = Field(
         default=3,
         description=(

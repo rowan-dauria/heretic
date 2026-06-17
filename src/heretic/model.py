@@ -480,10 +480,26 @@ class Model:
             )
 
         touched: dict[str, list[tuple[int, float, int]]] = {}
+        excluded_layers = {
+            int(layer) for layer in self.settings.excluded_abliteration_layers
+        }
+        invalid_excluded_layers = sorted(
+            layer
+            for layer in excluded_layers
+            if layer < 0 or layer >= len(self.get_layers())
+        )
+        if invalid_excluded_layers:
+            raise ValueError(
+                "excluded_abliteration_layers contains invalid layer indices: "
+                + ", ".join(str(layer) for layer in invalid_excluded_layers)
+            )
 
         # Note that some implementations of abliteration also orthogonalize
         # the embedding matrix, but it's unclear if that has any benefits.
         for layer_index in range(len(self.get_layers())):
+            if layer_index in excluded_layers:
+                continue
+
             for component, modules in self.get_layer_modules(layer_index).items():
                 params = parameters[component]
 

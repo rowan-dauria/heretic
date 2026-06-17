@@ -405,6 +405,28 @@ def run():
             return
 
     model = Model(settings)
+    excluded_layers = sorted(set(settings.excluded_abliteration_layers))
+    if excluded_layers:
+        invalid_layers = [
+            layer
+            for layer in excluded_layers
+            if layer < 0 or layer >= len(model.get_layers())
+        ]
+        if invalid_layers:
+            print(
+                "[red]Invalid excluded abliteration layer indices: "
+                f"[bold]{', '.join(str(layer) for layer in invalid_layers)}[/].[/]"
+            )
+            print(
+                f"Valid layer indices are [bold]0[/] through "
+                f"[bold]{len(model.get_layers()) - 1}[/]."
+            )
+            return
+        settings.excluded_abliteration_layers = excluded_layers
+        print(
+            "* Protected abliteration layers: "
+            f"[bold]{format_layer_ranges(excluded_layers)}[/]"
+        )
     print()
     print_memory_usage()
 
@@ -643,6 +665,9 @@ def run():
 
         trial.set_user_attr("direction_index", direction_index)
         trial.set_user_attr("parameters", {k: asdict(v) for k, v in parameters.items()})
+        trial.set_user_attr(
+            "excluded_abliteration_layers", settings.excluded_abliteration_layers
+        )
 
         print()
         print(
