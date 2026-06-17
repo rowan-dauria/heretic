@@ -169,6 +169,38 @@ def obtain_export_strategy(
     return strategy
 
 
+def format_layer_ranges(layers: list[int]) -> str:
+    if not layers:
+        return "none"
+
+    ranges = []
+    start = prev = layers[0]
+    for layer in layers[1:]:
+        if layer == prev + 1:
+            prev = layer
+            continue
+        ranges.append(f"{start}" if start == prev else f"{start}-{prev}")
+        start = prev = layer
+    ranges.append(f"{start}" if start == prev else f"{start}-{prev}")
+    return ", ".join(ranges)
+
+
+def format_touched_layers(touched_layers: Any) -> str:
+    if not isinstance(touched_layers, dict) or not touched_layers:
+        return "none"
+
+    pieces = []
+    for component in sorted(touched_layers):
+        info = touched_layers[component]
+        layers = []
+        if isinstance(info, dict):
+            raw_layers = info.get("layers", [])
+            if isinstance(raw_layers, list):
+                layers = sorted({int(layer) for layer in raw_layers})
+        pieces.append(f"{component}:{format_layer_ranges(layers)}")
+    return "; ".join(pieces)
+
+
 def run():
     # Enable expandable segments to reduce memory fragmentation on multi-GPU setups.
     if (
@@ -622,7 +654,8 @@ def run():
         print("* Resetting model...")
         model.reset_model()
         print("* Abliterating...")
-        model.abliterate(refusal_directions, direction_index, parameters)
+        touched_layers = model.abliterate(refusal_directions, direction_index, parameters)
+        trial.set_user_attr("touched_layers", touched_layers)
         print("* Evaluating...")
         score, kl_divergence, refusals = evaluator.get_score()
 
@@ -718,16 +751,19 @@ def run():
                     min_divergence = kl_divergence
                     best_trials.append(trial)
 
+            pareto_trial_numbers = {trial.number for trial in best_trials}
             choices = [
                 Choice(
                     title=(
+                        f"{'[P]' if trial.number in pareto_trial_numbers else '   '} "
                         f"[Trial {trial.user_attrs['index']:>3}] "
                         f"Refusals: {trial.user_attrs['refusals']:>2}/{len(evaluator.bad_prompts)}, "
-                        f"KL divergence: {trial.user_attrs['kl_divergence']:.4f}"
+                        f"KL divergence: {trial.user_attrs['kl_divergence']:.4f}, "
+                        f"Touched: {format_touched_layers(trial.user_attrs.get('touched_layers'))}"
                     ),
                     value=trial,
                 )
-                for trial in best_trials
+                for trial in sorted_trials
             ]
 
             choices.append(
@@ -749,7 +785,7 @@ def run():
             print()
             print(
                 (
-                    "The following trials resulted in Pareto optimal combinations of refusals and KL divergence. "
+                    "The following completed trials are sorted by refusals and KL divergence; [P] marks Pareto-optimal trials. "
                     "After selecting a trial, you will be able to save the model, upload it to Hugging Face, "
                     "chat with it to test how well it works, or run standard benchmarks on it. "
                     "You can return to this menu later to select a different trial. "
