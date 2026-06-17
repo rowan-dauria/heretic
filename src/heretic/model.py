@@ -463,7 +463,7 @@ class Model:
         refusal_directions: Tensor,
         direction_index: float | None,
         parameters: dict[str, AbliterationParameters],
-    ):
+    ) -> dict[str, dict[str, Any]]:
         if direction_index is None:
             refusal_direction = None
         else:
@@ -478,6 +478,8 @@ class Model:
                 p=2,
                 dim=0,
             )
+
+        touched: dict[str, list[tuple[int, float, int]]] = {}
 
         # Note that some implementations of abliteration also orthogonalize
         # the embedding matrix, but it's unclear if that has any benefits.
@@ -498,6 +500,11 @@ class Model:
                 weight = params.max_weight + (distance / params.min_weight_distance) * (
                     params.min_weight - params.max_weight
                 )
+
+                if abs(weight) > 1e-12:
+                    touched.setdefault(component, []).append(
+                        (layer_index, weight, len(modules))
+                    )
 
                 if refusal_direction is None:
                     # The index must be shifted by 1 because the first element
@@ -604,6 +611,44 @@ class Model:
                     weight_B = cast(Tensor, module.lora_B["default"].weight)
                     weight_A.data = lora_A.to(weight_A.dtype)
                     weight_B.data = lora_B.to(weight_B.dtype)
+
+        def format_layers(layers: list[int]) -> str:
+            ranges = []
+            start = prev = layers[0]
+            for layer in layers[1:]:
+                if layer == prev + 1:
+                    prev = layer
+                    continue
+                ranges.append(f"{start}" if start == prev else f"{start}-{prev}")
+                start = prev = layer
+            ranges.append(f"{start}" if start == prev else f"{start}-{prev}")
+            return ", ".join(ranges)
+
+        print("* Abliteration touched layers:")
+        if not touched:
+            print("  * None")
+        summary: dict[str, dict[str, Any]] = {}
+        for component, entries in touched.items():
+            layers = [layer for layer, _, _ in entries]
+            weights = [weight for _, weight, _ in entries]
+            module_count = sum(module_count for _, _, module_count in entries)
+            summary[component] = {
+                "layers": layers,
+                "n_layers": len(layers),
+                "n_modules": module_count,
+                "min_weight": min(weights),
+                "max_weight": max(weights),
+                "layer_weights": [
+                    {"layer": layer, "weight": weight}
+                    for layer, weight, _ in entries
+                ],
+            }
+            print(
+                f"  * [bold]{component}[/]: layers [bold]{format_layers(layers)}[/] "
+                f"({len(layers)} layers, {module_count} modules, "
+                f"weight range {min(weights):.3f}..{max(weights):.3f})"
+            )
+        return summary
 
     def generate(
         self,
