@@ -322,9 +322,17 @@ class Settings(BaseSettings):
     excluded_abliteration_layers: list[int] = Field(
         default_factory=list,
         description=(
-            "Zero-indexed transformer layer indices that must not receive abliteration "
-            "adapter weights. Use this to protect layers reserved for downstream analysis, "
-            "such as transcoder-tracked layers."
+            "Zero-indexed transformer layer indices that must not receive any abliteration "
+            "adapter weights for any component."
+        ),
+    )
+
+    excluded_mlp_abliteration_layers: list[int] = Field(
+        default_factory=list,
+        description=(
+            "Zero-indexed transformer layer indices whose MLP output projections must not "
+            "receive abliteration adapter weights. Attention output projections are still "
+            "eligible on these layers."
         ),
     )
 

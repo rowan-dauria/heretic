@@ -118,7 +118,7 @@ else
         unset HF_HUB_ENABLE_HF_TRANSFER
 fi
 
-export HERETIC_EXCLUDED_ABLITERATION_LAYERS="$protected_layers"
+export HERETIC_EXCLUDED_MLP_ABLITERATION_LAYERS="$protected_layers"
 export HERETIC_ENABLE_THINKING=false
 
 CMD=(
@@ -131,7 +131,7 @@ CMD=(
 echo "Python: $(which python)"
 python --version
 echo "Heretic: $(which heretic)"
-echo "Protected abliteration layers: $HERETIC_EXCLUDED_ABLITERATION_LAYERS"
+echo "Protected MLP abliteration layers: $HERETIC_EXCLUDED_MLP_ABLITERATION_LAYERS"
 echo "HF_HUB_ENABLE_HF_TRANSFER: ${HF_HUB_ENABLE_HF_TRANSFER:-unset}"
 
 echo -e "\nExecuting command:\n=================="

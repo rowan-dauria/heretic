@@ -406,10 +406,12 @@ def run():
 
     model = Model(settings)
     excluded_layers = sorted(set(settings.excluded_abliteration_layers))
-    if excluded_layers:
+    excluded_mlp_layers = sorted(set(settings.excluded_mlp_abliteration_layers))
+    excluded_any_layers = sorted(set(excluded_layers) | set(excluded_mlp_layers))
+    if excluded_any_layers:
         invalid_layers = [
             layer
-            for layer in excluded_layers
+            for layer in excluded_any_layers
             if layer < 0 or layer >= len(model.get_layers())
         ]
         if invalid_layers:
@@ -423,9 +425,16 @@ def run():
             )
             return
         settings.excluded_abliteration_layers = excluded_layers
+        settings.excluded_mlp_abliteration_layers = excluded_mlp_layers
+    if excluded_layers:
         print(
             "* Protected abliteration layers: "
             f"[bold]{format_layer_ranges(excluded_layers)}[/]"
+        )
+    if excluded_mlp_layers:
+        print(
+            "* Protected MLP abliteration layers: "
+            f"[bold]{format_layer_ranges(excluded_mlp_layers)}[/]"
         )
     print()
     print_memory_usage()
@@ -667,6 +676,10 @@ def run():
         trial.set_user_attr("parameters", {k: asdict(v) for k, v in parameters.items()})
         trial.set_user_attr(
             "excluded_abliteration_layers", settings.excluded_abliteration_layers
+        )
+        trial.set_user_attr(
+            "excluded_mlp_abliteration_layers",
+            settings.excluded_mlp_abliteration_layers,
         )
 
         print()
