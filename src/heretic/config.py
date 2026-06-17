@@ -208,6 +208,14 @@ class Settings(BaseSettings):
         ),
     )
 
+    enable_thinking: bool = Field(
+        default=False,
+        description=(
+            "Whether to enable model-specific thinking mode when applying chat templates. "
+            "For Qwen3, disabling this avoids generating <think> blocks and can reduce runtime."
+        ),
+    )
+
     chain_of_thought_skips: list[tuple[str, str]] = Field(
         default=[
             # Most thinking models.

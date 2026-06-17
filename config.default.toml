@@ -42,6 +42,10 @@ max_batch_size = 128
 # Maximum number of tokens to generate for each response.
 max_response_length = 100
 
+# Whether to enable model-specific thinking mode when applying chat templates.
+# For Qwen3, disabling this avoids generating <think> blocks and can reduce runtime.
+enable_thinking = false
+
 # List of pairs of the form [cot_initializer, closed_cot_block] used to skip
 # the Chain-of-Thought block in responses, so that evaluation happens
 # at the start of the actual response.

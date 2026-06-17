@@ -671,6 +671,7 @@ class Model:
                 chats,
                 add_generation_prompt=True,
                 tokenize=False,
+                enable_thinking=self.settings.enable_thinking,
             ),
         )
 
@@ -867,6 +868,7 @@ class Model:
                 chat,
                 add_generation_prompt=True,
                 tokenize=False,
+                enable_thinking=self.settings.enable_thinking,
             ),
         )
 
